@@ -5,6 +5,7 @@ const { app } = electron;
 const { BrowserWindow } = electron;
 const { Menu } = electron;
 const { ipcMain } = electron;
+const { autoUpdater } = electron;
 
 let win;
 const copyright = `Copyright © 2016 - ${new Date().getFullYear()} Lisk Foundation`;
@@ -216,3 +217,39 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
 ipcMain.on('proxyCredentialsEntered', (event, username, password) => {
   global.myTempFunction(username, password);
 });
+
+
+try {
+  // TODO: change to the final url once it's known
+  const feedUrl = `https://localhost:8082/?version=${app.getVersion()}&platform=${process.platform}`;
+  autoUpdater.setFeedURL(feedUrl);
+
+  autoUpdater.checkForUpdates();
+  setInterval(() => {
+    autoUpdater.checkForUpdates();
+  }, 24 * 60 * 60 * 1000);
+
+  autoUpdater.on('update-downloaded', (event, releaseNotes, releaseName, releaseDate, updateUrl, quitAndUpdate) => {
+    const index = electron.dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Restart', 'Later'],
+      title: 'Lisk Nano',
+      message: 'The new version has been downloaded. Please restart the application to apply the updates.',
+      detail: `${releaseName}\n\n${releaseNotes}`,
+    });
+
+    if (index === 1) {
+      return;
+    }
+
+    quitAndUpdate();
+  });
+
+  autoUpdater.on('error', (message) => {
+    console.error('There was a problem updating the application');
+    console.error(message);
+  });
+} catch (e) {
+  // because autoUpdater doesn't work if the build is not signed
+  console.log(e);
+}
