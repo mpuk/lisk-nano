@@ -4,10 +4,10 @@ import Input from 'react-toolbox/lib/input';
 import Dropdown from 'react-toolbox/lib/dropdown';
 import Button from 'react-toolbox/lib/button';
 import networksRaw from './networks';
-import Passphrase from '../passphrase';
 import PassphraseInput from '../passphraseInput';
 import styles from './login.css';
 import env from '../../constants/env';
+import RelativeLink from '../relativeLink';
 
 /**
  * The container component containing login
@@ -34,20 +34,35 @@ class Login extends React.Component {
     };
   }
 
-  componentDidMount() {
-    this.autologin();
-    // pre-fill passphrase and address if exiting in cookies
-    this.devPreFill();
+  componentWillMount() {
+    this.props.accountsRetrieved();
   }
 
   componentDidUpdate() {
     if (this.props.account && this.props.account.address) {
-      this.props.history.replace(this.getReferrerRoute());
+      const tem = this.getReferrerRoute();
+      this.props.history.replace(tem);
       if (this.state.address) {
         localStorage.setItem('address', this.state.address);
       }
       localStorage.setItem('network', this.state.network);
     }
+    if (!this.account) {
+      this.autoLogin();
+    }
+  }
+
+  onLoginSubmission(passphrase) {
+    const network = Object.assign({}, networksRaw[this.state.network]);
+    if (this.state.network === 2) {
+      network.address = this.state.address;
+    }
+
+    // set active peer
+    this.props.activePeerSet({
+      passphrase,
+      network,
+    });
   }
 
   getReferrerRoute() {
@@ -100,36 +115,6 @@ class Login extends React.Component {
     });
   }
 
-  autologin() {
-    const savedAccounts = localStorage.getItem('accounts');
-    if (savedAccounts && !this.props.account.afterLogout) {
-      const account = JSON.parse(savedAccounts)[0];
-      const network = Object.assign({}, networksRaw[account.network]);
-      if (account.network === 2) {
-        network.address = account.address;
-      }
-
-      // set active peer
-      this.props.activePeerSet({
-        publicKey: account.publicKey,
-        network,
-      });
-    }
-  }
-
-  onLoginSubmission(passphrase) {
-    const network = Object.assign({}, networksRaw[this.state.network]);
-    if (this.state.network === 2) {
-      network.address = this.state.address;
-    }
-
-    // set active peer
-    this.props.activePeerSet({
-      passphrase,
-      network,
-    });
-  }
-
   devPreFill() {
     const address = localStorage.getItem('address') || '';
     const passphrase = localStorage.getItem('passphrase') || '';
@@ -150,12 +135,37 @@ class Login extends React.Component {
     }
   }
 
+  onFormSubmit(event) {
+    event.preventDefault();
+    this.onLoginSubmission(this.state.passphrase);
+  }
+
+  autoLogin() {
+    const { savedAccounts } = this.props;
+    if (savedAccounts && savedAccounts.length > 0 && !this.props.account.afterLogout) {
+      this.account = savedAccounts[0];
+      const network = Object.assign({}, networksRaw[this.account.network]);
+      if (this.account.network === 2) {
+        network.address = this.account.address;
+      }
+
+      // set active peer
+      this.props.activePeerSet({
+        publicKey: this.account.publicKey,
+        network,
+      });
+    } else {
+      this.account = 'not-saved';
+      this.devPreFill();
+    }
+  }
+
   render() {
     return (
       <div className={`box ${styles.wrapper}`}>
         <div className={`${grid.row} ${grid['center-xs']}`}>
           <div className={`${grid['col-xs-12']} ${grid['col-sm-8']}`}>
-            <form>
+            <form onSubmit={this.onFormSubmit.bind(this)}>
               <Dropdown
                 auto={false}
                 source={this.networks}
@@ -175,7 +185,7 @@ class Login extends React.Component {
                     error={this.state.addressValidity}
                     onChange={this.changeHandler.bind(this, 'address')} />
               }
-              <PassphraseInput llabel={this.props.t('Enter your passphrase')}
+              <PassphraseInput label={this.props.t('Enter your passphrase')}
                 className='passphrase'
                 theme={styles}
                 error={this.state.passphraseValidity}
@@ -183,18 +193,11 @@ class Login extends React.Component {
                 onChange={this.changeHandler.bind(this, 'passphrase')} />
               <footer className={ `${grid.row} ${grid['center-xs']}` }>
                 <div className={grid['col-xs-12']}>
-                  <Button label={this.props.t('New Account')} flat primary
-                    className={`${styles.newAccount} new-account-button`}
-                    onClick={() => this.props.setActiveDialog({
-                      title: this.props.t('New Account'),
-                      childComponent: Passphrase,
-                      childComponentProps: {
-                        onPassGenerated: this.onLoginSubmission.bind(this),
-                      },
-                    })} />
-                  <Button label={this.props.t('Login')} primary raised
-                    onClick={this.onLoginSubmission.bind(this, this.state.passphrase)}
+                  <RelativeLink to='register' flat primary
+                    className={`${styles.newAccount} new-account-button`}>{this.props.t('New Account')}</RelativeLink>
+                  <Button label='LOGIN' primary raised
                     className='login-button'
+                    type='submit'
                     disabled={(this.state.network === 2 && this.state.addressValidity !== '') ||
                     this.state.passphraseValidity !== ''} />
                 </div>

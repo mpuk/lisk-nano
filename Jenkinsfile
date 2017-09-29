@@ -1,6 +1,18 @@
+def fail(reason) {
+  def pr_branch = ''
+  if (env.CHANGE_BRANCH != null) {
+    pr_branch = " (${env.CHANGE_BRANCH})"
+  }
+  slackSend color: 'danger', message: "Build #${env.BUILD_NUMBER} of <${env.BUILD_URL}|${env.JOB_NAME}>${pr_branch} failed (<${env.BUILD_URL}/console|console>, <${env.BUILD_URL}/changes|changes>)\nCause: ${reason}", channel: '#lisk-nano-jenkins'
+  currentBuild.result = 'FAILURE'
+  sh 'rm -rf "$WORKSPACE/node_modules/"'
+  milestone 1
+  error("${reason}")
+}
+
 node('lisk-nano-01'){
   lock(resource: "lisk-nano-01", inversePrecedence: true) {
-    stage ('Cleanup Orphaned Processes') {
+    stage ('Cleanup, Checkout, and Start Lisk Core') {
       try {
       sh '''
         # Clean up old processes
@@ -12,39 +24,29 @@ node('lisk-nano-01'){
         pkill -f webpack -9 || true
       '''
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, installation failed')
+        fail('Stopping build, installation failed')
       }
-    }
 
-    stage ('Prepare Workspace') {
       try {
         deleteDir()
         checkout scm
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, Checkout failed')
+        fail('Stopping build, Checkout failed')
       }
-    }
 
-    stage ('Start Lisk Core') {
       try {
-        sh '''#!/bin/bash
+        sh '''
           cd ~/lisk-test-nano
           bash lisk.sh rebuild -f /home/lisk/lisk-test-nano/blockchain_explorer.db.gz
           '''
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, Lisk Core failed to start')
+        fail('Stopping build, Lisk Core failed to start')
       }
     }
 
     stage ('Install npm dependencies') {
       try {
-        sh '''#!/bin/bash
+        sh '''
         npm install
         # Build nano
         cd $WORKSPACE
@@ -52,9 +54,7 @@ node('lisk-nano-01'){
 
         '''
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, npm install failed')
+        fail('Stopping build, npm install failed')
       }
     }
 
@@ -67,14 +67,13 @@ node('lisk-nano-01'){
           '''
 	}
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        error('Stopping build, Eslint failed')
+        fail('Stopping build, Eslint failed')
       }
     }
 
     stage ('Build Nano') {
       try {
-        sh '''#!/bin/bash
+        sh '''
         # Add coveralls config file
         cp ~/.coveralls.yml-nano .coveralls.yml
 
@@ -82,13 +81,11 @@ node('lisk-nano-01'){
         npm run build
         '''
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, Nano build failed')
+        fail('Stopping build, Nano build failed')
       }
     }
 
-    stage ('Run Tests') {
+    stage ('Run Unit Tests') {
       try {
         ansiColor('xterm') {
           sh '''
@@ -103,12 +100,11 @@ node('lisk-nano-01'){
           '''
       }
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        error('Stopping build, Test suite failed')
+        fail('Stopping build, Test suite failed')
       }
     }
 
-    stage ('Start Dev Server and Run Tests') {
+    stage ('Start Dev Server and Run E2E Tests') {
       try {
         ansiColor('xterm') {
           sh '''
@@ -135,13 +131,11 @@ node('lisk-nano-01'){
           '''
         }
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, End to End Test suite failed')
+        fail('Stopping build, End to End Test suite failed')
       }
     }
 
-    stage ('Deploy') {
+    stage ('Deploy and Set milestone') {
       try {
         sh '''
         rsync -axl --delete "$WORKSPACE/app/dist/" "jenkins@master-01:/var/www/test/lisk-nano/$BRANCH_NAME/"
@@ -150,14 +144,18 @@ node('lisk-nano-01'){
         rm -rf "$WORKSPACE/*"
         '''
       } catch (err) {
-        currentBuild.result = 'FAILURE'
-        milestone 1
-        error('Stopping build, End to End Test suite failed')
+        fail('Stopping build, Deploy failed')
       }
-    }
-
-    stage ('Set milestone') {
       milestone 1
+      /* notify of success if previous build failed */
+      previous_build = currentBuild.getPreviousBuild()
+      if (previous_build != null && previous_build.result == 'FAILURE') {
+        def pr_branch = ''
+        if (env.CHANGE_BRANCH != null) {
+          pr_branch = " (${env.CHANGE_BRANCH})"
+        }
+        slackSend color: 'good', message: "Recovery: build #${env.BUILD_NUMBER} of <${env.BUILD_URL}|${env.JOB_NAME}>${pr_branch} was successful.", channel: '#lisk-nano-jenkins'
+      }
     }
   }
 }
