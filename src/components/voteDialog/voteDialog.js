@@ -50,7 +50,7 @@ export default class VoteDialog extends React.Component {
     });
     return (
       <article>
-        <form onSubmit={this.confirm.bind(this)}>
+        <form id='voteform'>
           <Autocomplete
             votedDelegates={this.props.delegates}
             votes={this.props.votes}
@@ -63,9 +63,11 @@ export default class VoteDialog extends React.Component {
           <article className={styles.info}>
             <InfoParagraph>
               <p >
-                You can select up to {maxCountOfVotesInOneTurn} delegates in one voting turn.
+                {this.props.t('You can select up to {{count}} delegates in one voting turn.', { count: maxCountOfVotesInOneTurn })}
               </p>
-              You can vote for up to {maxCountOfVotes} delegates in total.
+              <p >
+                {this.props.t('You can vote for up to {{count}} delegates in total.', { count: maxCountOfVotes })}
+              </p>
             </InfoParagraph>
           </article>
 
@@ -74,9 +76,10 @@ export default class VoteDialog extends React.Component {
               onClick: this.props.closeDialog,
             }}
             primaryButton={{
-              label: 'Confirm',
+              label: this.props.t('Confirm'),
+              onClick: this.confirm.bind(this),
               fee: Fees.vote,
-              type: 'submit',
+              type: 'button',
               disabled: (
                 totalVotes > maxCountOfVotes ||
                 votesList.length === 0 ||

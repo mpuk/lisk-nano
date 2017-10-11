@@ -6,6 +6,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import configureMockStore from 'redux-mock-store';
 import Lisk from 'lisk-js';
 import PropTypes from 'prop-types';
+import i18n from '../../i18n';
 import Login from './login';
 
 describe('Login', () => {
@@ -42,14 +43,14 @@ describe('Login', () => {
     },
   };
   const options = {
-    context: { store, history },
+    context: { store, history, i18n },
     childContextTypes: {
       store: PropTypes.object.isRequired,
       history: PropTypes.object.isRequired,
+      i18n: PropTypes.object.isRequired,
     },
     lifecycleExperimental: true,
   };
-  props.spyActivePeerSet = spy(props.activePeerSet);
 
   describe('Generals', () => {
     beforeEach(() => {
@@ -70,22 +71,22 @@ describe('Login', () => {
     props.account = { address: 'dummy' };
 
     it('calls this.props.history.replace(\'/main/transactions\')', () => {
-      wrapper = shallow(<Router><Login {...props}/></Router>, options);
+      wrapper = shallow(<Login {...props}/>, options);
       wrapper.setProps(props);
       expect(props.history.replace).to.have.been.calledWith('/main/transactions');
     });
 
-    it.skip('calls this.props.history.replace with referrer address', () => {
-      wrapper = shallow(<Router><Login {...props}/></Router>, options);
+    it('calls this.props.history.replace with referrer address', () => {
+      wrapper = shallow(<Login {...props}/>, options);
       props.history.replace.reset();
       history.location.search = '?referrer=/main/voting';
       wrapper.setProps({ history });
       expect(props.history.replace).to.have.been.calledWith('/main/voting');
     });
 
-    it.skip('call this.props.history.replace with "/main/transaction" if referrer address is "/main/forging" and account.isDelegate === false', () => {
+    it('call this.props.history.replace with "/main/transaction" if referrer address is "/main/forging" and account.isDelegate === false', () => {
       history.location.search = '';
-      wrapper = shallow(<Router><Login {...props}/></Router>, options);
+      wrapper = shallow(<Login {...props}/>, options);
       history.location.search = '?referrer=/main/forging';
       account.isDelegate = false;
       props.history.replace.reset();
@@ -105,42 +106,6 @@ describe('Login', () => {
     });
   });
 
-  describe('validateUrl', () => {
-    beforeEach('', () => {
-      wrapper = shallow(<Login {...props}/>, options);
-    });
-
-    it('should set address and addressValidity="" for a valid address', () => {
-      const validURL = 'http://localhost:8080';
-      const data = wrapper.instance().validateUrl(validURL);
-      const expectedData = {
-        address: validURL,
-        addressValidity: '',
-      };
-      expect(data).to.deep.equal(expectedData);
-    });
-
-    it('should set address and addressValidity correctly event without http', () => {
-      const validURL = '127.0.0.1:8080';
-      const data = wrapper.instance().validateUrl(validURL);
-      const expectedData = {
-        address: validURL,
-        addressValidity: '',
-      };
-      expect(data).to.deep.equal(expectedData);
-    });
-
-    it('should set address and addressValidity="URL is invalid" for a valid address', () => {
-      const validURL = 'http:localhost:8080';
-      const data = wrapper.instance().validateUrl(validURL);
-      const expectedData = {
-        address: validURL,
-        addressValidity: 'URL is invalid',
-      };
-      expect(data).to.deep.equal(expectedData);
-    });
-  });
-
   describe('changeHandler', () => {
     it('call setState with matching data', () => {
       wrapper = shallow(<Login {...props}/>, options);
@@ -153,10 +118,12 @@ describe('Login', () => {
   });
 
   describe('onLoginSubmission', () => {
-    it.skip('it should call activePeerSet', () => {
+    it('it should call activePeerSet', () => {
+      const spyActivePeerSet = spy(props, 'activePeerSet');
+
       wrapper = shallow(<Login {...props}/>, options);
       wrapper.instance().onLoginSubmission();
-      expect(wrapper.props().spyActivePeerSet).to.have.been.calledWith();
+      expect(spyActivePeerSet).to.have.been.calledWith();
     });
   });
 });

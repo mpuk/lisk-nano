@@ -1,12 +1,14 @@
-import React from 'react';
-import Input from 'react-toolbox/lib/input';
-import Chip from 'react-toolbox/lib/chip';
 import { Card } from 'react-toolbox/lib/card';
 import { List, ListItem } from 'react-toolbox/lib/list';
+import { translate } from 'react-i18next';
+import Chip from 'react-toolbox/lib/chip';
+import Input from 'react-toolbox/lib/input';
+import React from 'react';
+
 import { voteAutocomplete, unvoteAutocomplete } from '../../utils/api/delegate';
 import styles from './voteAutocomplete.css';
 
-export default class VoteAutocomplete extends React.Component {
+export class VoteAutocompleteRaw extends React.Component {
   constructor() {
     super();
     this.state = {
@@ -16,6 +18,9 @@ export default class VoteAutocomplete extends React.Component {
       unvotedResult: [],
       votedListSearch: '',
       unvotedListSearch: '',
+      votedSuggestionError: '',
+      unvotedSuggestionError: '',
+
     };
   }
 
@@ -39,24 +44,42 @@ export default class VoteAutocomplete extends React.Component {
         if (name === 'votedListSearch') {
           voteAutocomplete(this.props.activePeer, value, this.props.votes)
             .then((res) => {
-              this.setState({
-                votedResult: res,
-                votedSuggestionClass: '',
-              });
+              if (res.length > 0) {
+                this.setState({
+                  votedResult: res,
+                  votedSuggestionClass: '',
+                  votedSuggestionError: '',
+                });
+              } else {
+                this.setState({
+                  votedSuggestionError: this.props.t('No matches'),
+                  votedSuggestionClass: styles.hidden,
+                });
+              }
             });
         } else {
           unvoteAutocomplete(value, this.props.votes)
             .then((res) => {
-              this.setState({
-                unvotedResult: res,
-                unvotedSuggestionClass: '',
-              });
+              if (res.length > 0) {
+                this.setState({
+                  unvotedResult: res,
+                  unvotedSuggestionClass: '',
+                  unvotedSuggestionError: '',
+                });
+              } else {
+                this.setState({
+                  unvotedSuggestionError: this.props.t('No matches'),
+                  unvotedSuggestionClass: styles.hidden,
+                });
+              }
             });
         }
       } else {
         this.setState({
           votedResult: [],
           unvotedResult: [],
+          votedSuggestionError: '',
+          unvotedSuggestionError: '',
           votedSuggestionClass: styles.hidden,
           unvotedSuggestionClass: styles.hidden,
         });
@@ -172,7 +195,7 @@ export default class VoteAutocomplete extends React.Component {
 
     return (
       <article>
-        <h3 className={styles.autoCompleteTile}>Add vote to</h3>
+        <h3 className={styles.autoCompleteTile}>{this.props.t('Add vote to')}</h3>
         <div>
           {votedList.map(
             item => <Chip key={item}
@@ -184,8 +207,9 @@ export default class VoteAutocomplete extends React.Component {
           )}
         </div>
         <section className={styles.searchContainer}>
-          <Input type='text' label='Search by username' name='votedListSearch'
+          <Input type='text' label={this.props.t('Search by username')} name='votedListSearch'
             className='votedListSearch' value={this.state.votedListSearch}
+            error={this.state.votedSuggestionError}
             theme={styles}
             onBlur={this.suggestionStatus.bind(this, false, 'votedSuggestionClass')}
             onKeyDown={this.votedSearchKeyDown.bind(this)}
@@ -204,7 +228,7 @@ export default class VoteAutocomplete extends React.Component {
             </List>
           </Card>
         </section>
-        <h3 className={styles.autoCompleteTile}>Remove vote from</h3>
+        <h3 className={styles.autoCompleteTile}>{this.props.t('Remove vote from')}</h3>
         <div>
           {unvotedList.map(
             item => <Chip key={item}
@@ -216,8 +240,9 @@ export default class VoteAutocomplete extends React.Component {
           )}
         </div>
         <section className={styles.searchContainer}>
-          <Input type='text' label='Search by username' name='unvotedListSearch'
+          <Input type='text' label={this.props.t('Search by username')} name='unvotedListSearch'
             className='unvotedListSearch' value={this.state.unvotedListSearch}
+            error={this.state.unvotedSuggestionError}
             theme={styles}
             onBlur={this.suggestionStatus.bind(this, false, 'unvotedSuggestionClass')}
             onKeyDown={this.unvotedSearchKeyDown.bind(this)}
@@ -240,3 +265,5 @@ export default class VoteAutocomplete extends React.Component {
     );
   }
 }
+
+export default translate()(VoteAutocompleteRaw);

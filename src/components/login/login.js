@@ -3,11 +3,14 @@ import grid from 'flexboxgrid/dist/flexboxgrid.css';
 import Input from 'react-toolbox/lib/input';
 import Dropdown from 'react-toolbox/lib/dropdown';
 import Button from 'react-toolbox/lib/button';
-import networksRaw from './networks';
+import getNetworks from './networks';
 import PassphraseInput from '../passphraseInput';
 import styles from './login.css';
 import env from '../../constants/env';
+import networks from '../../constants/networks';
+import LanguageDropdown from '../languageDropdown';
 import RelativeLink from '../relativeLink';
+import { validateUrl, getLoginData } from '../../utils/login';
 
 /**
  * The container component containing login
@@ -17,24 +20,24 @@ class Login extends React.Component {
   constructor() {
     super();
 
-    this.networks = networksRaw.map((network, index) => ({
-      label: network.name,
-      value: index,
-    }));
-
     this.state = {
       passphrase: '',
       address: '',
-      network: 0,
+      network: networks.mainnet,
     };
 
     this.validators = {
-      address: this.validateUrl,
+      address: validateUrl,
       passphrase: this.validatePassphrase.bind(this),
     };
   }
 
   componentWillMount() {
+    this.networks = getNetworks().map((network, index) => ({
+      label: network.name,
+      value: index,
+    }));
+
     this.props.accountsRetrieved();
   }
 
@@ -53,8 +56,8 @@ class Login extends React.Component {
   }
 
   onLoginSubmission(passphrase) {
-    const network = Object.assign({}, networksRaw[this.state.network]);
-    if (this.state.network === 2) {
+    const network = Object.assign({}, getNetworks()[this.state.network]);
+    if (this.state.network === networks.customNode) {
       network.address = this.state.address;
     }
 
@@ -77,30 +80,6 @@ class Login extends React.Component {
   }
 
   // eslint-disable-next-line class-methods-use-this
-  validateUrl(value) {
-    const addHttp = (url) => {
-      const reg = /^(?:f|ht)tps?:\/\//i;
-      return reg.test(url) ? url : `http://${url}`;
-    };
-
-    const errorMessage = 'URL is invalid';
-
-    const isValidLocalhost = url => url.hostname === 'localhost' && url.port.length > 1;
-    const isValidRemote = url => /(([a-z\d]([a-z\d-]*[a-z\d])*)\.)+[a-z]{2,}|((\d{1,3}\.){3}\d{1,3})/.test(url.hostname);
-
-    let addressValidity = '';
-    try {
-      const url = new URL(addHttp(value));
-      addressValidity = url && (isValidRemote(url) || isValidLocalhost(url)) ? '' : errorMessage;
-    } catch (e) {
-      addressValidity = errorMessage;
-    }
-
-    const data = { address: value, addressValidity };
-    return data;
-  }
-
-  // eslint-disable-next-line class-methods-use-this
   validatePassphrase(value, error) {
     const data = { passphrase: value };
     data.passphraseValidity = error || '';
@@ -116,12 +95,10 @@ class Login extends React.Component {
   }
 
   devPreFill() {
-    const address = localStorage.getItem('address') || '';
-    const passphrase = localStorage.getItem('passphrase') || '';
-    const network = parseInt(localStorage.getItem('network'), 10) || 0;
+    const { networkIndex, address, passphrase } = getLoginData();
 
     this.setState({
-      network,
+      network: networkIndex,
       ...this.validators.address(address),
       ...this.validators.passphrase(passphrase),
     });
@@ -144,8 +121,8 @@ class Login extends React.Component {
     const { savedAccounts } = this.props;
     if (savedAccounts && savedAccounts.length > 0 && !this.props.account.afterLogout) {
       this.account = savedAccounts[0];
-      const network = Object.assign({}, networksRaw[this.account.network]);
-      if (this.account.network === 2) {
+      const network = Object.assign({}, getNetworks()[this.account.network]);
+      if (this.account.network === networks.customNode) {
         network.address = this.account.address;
       }
 
@@ -163,9 +140,10 @@ class Login extends React.Component {
   render() {
     return (
       <div className={`box ${styles.wrapper}`}>
-        <div className={`${grid.row} ${grid['center-xs']}`}>
-          <div className={`${grid['col-xs-12']} ${grid['col-sm-8']}`}>
+        <div className={grid.row}>
+          <div className={`${grid['col-xs-12']} ${grid['col-sm-8']} ${grid['col-sm-offset-2']}`}>
             <form onSubmit={this.onFormSubmit.bind(this)}>
+              <LanguageDropdown />
               <Dropdown
                 auto={false}
                 source={this.networks}
@@ -175,7 +153,7 @@ class Login extends React.Component {
                 className={`${styles.network} network`}
               />
               {
-                this.state.network === 2 &&
+                this.state.network === networks.customNode &&
                   <Input type='text'
                     label={this.props.t('Node address')}
                     name='address'
@@ -194,11 +172,13 @@ class Login extends React.Component {
               <footer className={ `${grid.row} ${grid['center-xs']}` }>
                 <div className={grid['col-xs-12']}>
                   <RelativeLink to='register' flat primary
-                    className={`${styles.newAccount} new-account-button`}>{this.props.t('New Account')}</RelativeLink>
-                  <Button label='LOGIN' primary raised
+                    className={`${styles.newAccount} new-account-button`}>
+                    {this.props.t('New Account')}
+                  </RelativeLink>
+                  <Button label={this.props.t('Login')} primary raised
                     className='login-button'
                     type='submit'
-                    disabled={(this.state.network === 2 && this.state.addressValidity !== '') ||
+                    disabled={(this.state.network === networks.customNode && this.state.addressValidity !== '') ||
                     this.state.passphraseValidity !== ''} />
                 </div>
               </footer>

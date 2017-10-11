@@ -27,7 +27,8 @@ class Transactions extends React.Component {
   }
 
   componentDidUpdate() {
-    this.canLoadMore = this.props.count > this.props.transactions.length;
+    const { count, transactions } = this.props;
+    this.canLoadMore = count === null || count > transactions.length;
   }
 
   render() {
@@ -47,9 +48,9 @@ class Transactions extends React.Component {
             </tbody>
           </table> :
           <p className={`${styles.empty} hasPaddingRow empty-message`}>
-            There are no transactions, yet. &nbsp;
+            {this.props.t('There are no transactions, yet.')} &nbsp;
             <RelativeLink className={`${styles.button} ${buttonStyle.button} ${buttonStyle.primary} ${buttonStyle.raised} receive-lsk-button ${offlineStyle.disableWhenOffline}`}
-              to='receive'>Receive LSK</RelativeLink>
+              to='receive'>{this.props.t('Receive LSK')}</RelativeLink>
           </p>
         }
         <Waypoint bottomOffset='-80%'
